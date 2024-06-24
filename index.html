@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Simple Banking System</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/daisyui@1.14.0"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-image: url('https://via.placeholder.com/1500');
+            background-size: cover;
+            font-family: 'Roboto', sans-serif;
+        }
+    </style>
+    <script src="jwt.js"></script>
+</head>
+<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen">
+    <div class="text-center p-4 bg-white rounded-lg shadow-lg">
+        <h1 class="mb-6 text-4xl font-bold text-gray-800">Welcome to Our Banking System</h1>
+        <div class="space-x-4">
+            <button class="btn btn-primary" onclick="location.href='./auth/employeeLogin.html'">Employee Login</button>
+            <button class="btn btn-secondary" onclick="location.href='./auth/userLogin.html'">User Login</button>
+        </div>
+    </div>
+    <!-- Placeholder for the footer -->
+    <div id="footer-placeholder"></div>
+    <script>
+        // Fetch and include the footer.html content
+        fetch('footer.html')
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('footer-placeholder').innerHTML = html;
+            })
+            .catch(err => console.error('Failed to load footer: ', err));
+    </script>
+</body>
+</html>
