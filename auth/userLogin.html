@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Login</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="../config.js"></script>
+    <script src="../jwt.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="min-h-screen flex items-center justify-center">
+        <div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+            <!-- Login form here -->
+            <form id="loginForm" class="space-y-6">
+                <div>
+                    <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
+                    <input type="text" id="username" name="username" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" id="password" name="password" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <div>
+                    <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Log in</button>
+                </div>
+            </form>
+            <div id="errorMessage" class="hidden alert alert-error shadow-lg">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.268 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    <span><!-- Error message will be injected here --></span>
+                </div>
+            </div>
+            <script>
+                document.getElementById('loginForm').addEventListener('submit', async function(event) {
+                    event.preventDefault();
+                    const username = document.getElementById('username').value;
+                    const password = document.getElementById('password').value;
+                    const errorMessage = document.getElementById('errorMessage');
+        
+                    if (!username || !password) {
+                        errorMessage.textContent = 'Username and password must not be empty.';
+                        errorMessage.classList.remove('hidden');
+                        return;
+                    }
+        
+        
+                    try {
+                        const response = await fetch(config.backendURL + 'auth/user/login', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ username, password }),
+                        });
+                        if (!response.ok) {
+                            throw new Error('Login failed');
+                        }
+                        const data = await response.json();
+                        console.log('Login successful:', data);
+                        // Redirect or handle login success
+                        localStorage.setItem('jwtToken', data.token); // Assuming the token is in the response
+                        window.location.href = '/dashboard/user.html';
+                    } catch (error) {
+                        console.error('Login failed:', error);
+                        errorMessage.textContent = 'Username or Password is incorrect.';
+                        errorMessage.classList.remove('hidden');
+                    }
+                });
+            </script>
+        </div>
+    </div>
+</body>
+</html>
