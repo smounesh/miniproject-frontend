@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Management</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body { padding: 20px; }
+        .table { margin-top: 20px; }
+        .alert-custom {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+    </style>
+    <script src="../config.js"></script>
+</head>
+<body>
+    <h2>Employee Management</h2>
+    <div id="alertContainer" class="alert-custom"></div>
+    <input type="text" id="searchInput" placeholder="Search by name or email..." class="form-control">
+    <button id="addEmployeeBtn" class="btn btn-primary mt-2">Add Employee</button>
+    <div id="addEmployeeForm" style="display: none;">
+        <form id="employeeForm" class="mt-2">
+            <input type="text" id="employeeName" placeholder="Employee Name" required class="form-control mb-2">
+            <input type="email" id="email" placeholder="Email" required class="form-control mb-2">
+            <input type="text" id="phoneNumber" placeholder="Phone Number" required pattern="[0-9]{10}" class="form-control mb-2">
+            <input type="password" id="password" placeholder="Password" required pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*\W).{8,}" class="form-control mb-2">
+            <input type="text" id="department" placeholder="Department" required class="form-control mb-2">
+            <input type="text" id="jobTitle" placeholder="Job Title" required class="form-control mb-2">
+            <select id="branch" required class="form-control mb-2"></select>
+            <input type="hidden" id="role" name="role" value="Admin">
+            <button type="submit" class="btn btn-success">Submit</button>
+        </form>
+    </div>
+    <div id="editEmployeeForm" style="display: none;">
+        <form id="editEmployeeFormData" class="mt-2">
+            <input type="hidden" id="editEmployeeID">
+            <input type="text" id="editEmployeeName" placeholder="Employee Name" required class="form-control mb-2">
+            <input type="email" id="editEmail" placeholder="Email" required class="form-control mb-2">
+            <input type="text" id="editPhoneNumber" placeholder="Phone Number" required pattern="[0-9]{10}" class="form-control mb-2">
+            <input type="text" id="editDepartment" placeholder="Department" required class="form-control mb-2">
+            <input type="text" id="editJobTitle" placeholder="Job Title" required class="form-control mb-2">
+            <select id="editBranch" required class="form-control mb-2"></select>
+            <select id="editRole" required class="form-control mb-2">
+                <option value="Admin">Admin</option>
+                <option value="Employee">Employee</option>
+            </select>
+            <button type="submit" class="btn btn-success">Update</button>
+        </form>
+    </div>
+    <div id="employeeTable" class="table-responsive"></div>
+
+    <!-- Bootstrap JS and dependencies -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async function() {
+            let employees = [];
+            let branches = [];
+            try {
+                const response = await fetch(`${config.backendURL}employee`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                employees = await response.json();
+                renderTable(employees);
+
+                const branchesResponse = await fetch(`${config.backendURL}branch`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
+                    }
+                });
+
+                if (!branchesResponse.ok) {
+                    throw new Error(`HTTP error! status: ${branchesResponse.status}`);
+                }
+
+                branches = await branchesResponse.json();
+                renderBranchDropdown(branches);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                showAlert('Error fetching data.', 'danger');
+            }
+
+            document.getElementById('searchInput').addEventListener('input', function() {
+                const searchText = this.value.toLowerCase();
+                const filteredEmployees = employees.filter(employee =>
+                    employee.employeeName.toLowerCase().includes(searchText) ||
+                    employee.email.toLowerCase().includes(searchText)
+                );
+                renderTable(filteredEmployees);
+            });
+
+            document.getElementById('addEmployeeBtn').addEventListener('click', function() {
+                document.getElementById('addEmployeeForm').style.display = 'block';
+                document.getElementById('editEmployeeForm').style.display = 'none';
+            });
+
+            document.getElementById('employeeForm').addEventListener('submit', function(event) {
+                event.preventDefault();
+
+                const employeeName = document.getElementById('employeeName').value;
+                const email = document.getElementById('email').value;
+                const phoneNumber = document.getElementById('phoneNumber').value;
+                const password = document.getElementById('password').value;
+                const department = document.getElementById('department').value;
+                const jobTitle = document.getElementById('jobTitle').value;
+                const branchName = document.getElementById('branch').value;
+                const branchID = branches.find(branch => branch.branchName === branchName).branchID;
+                const role = document.getElementById('role').value;
+
+                if (!employeeName || !email || !phoneNumber || !password || !department || !jobTitle || !branchName || !role) {
+                    showAlert('All fields are required.', 'danger');
+                    return;
+                }
+
+                if (!/^\d{10}$/.test(phoneNumber)) {
+                    showAlert('Phone number should contain 10 digits.', 'danger');
+                    return;
+                }
+
+                if (!/(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*\W).{8,}/.test(password)) {
+                    showAlert('Password should contain at least 8 characters, including at least one uppercase letter, one lowercase letter, one number, and one special character.', 'danger');
+                    return;
+                }
+
+                fetch(`${config.backendURL}employee`, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'text/plain',
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
+                    },
+                    body: JSON.stringify({
+                        employeeName: employeeName,
+                        email: email,
+                        phoneNumber: phoneNumber,
+                        password: password,
+                        department: department,
+                        jobTitle: jobTitle,
+                        branchID: branchID,
+                        role: role
+                    })
+                }).then(response => {
+                    if (response.ok) {
+                        showAlert('Employee added successfully', 'success');
+                        window.location.reload();
+                    } else {
+                        showAlert('Failed to add employee', 'danger');
+                    }
+                }).catch(error => {
+                    console.error('Error adding employee:', error);
+                    showAlert('Error adding employee', 'danger');
+                });
+            });
+
+            document.getElementById('editEmployeeFormData').addEventListener('submit', function(event) {
+                event.preventDefault();
+
+                const employeeID = document.getElementById('editEmployeeID').value;
+                const employeeName = document.getElementById('editEmployeeName').value;
+                const email = document.getElementById('editEmail').value;
+                const phoneNumber = document.getElementById('editPhoneNumber').value;
+                const department = document.getElementById('editDepartment').value;
+                const jobTitle = document.getElementById('editJobTitle').value;
+                const branchName = document.getElementById('editBranch').value;
+                const branchID = branches.find(branch => branch.branchName === branchName).branchID;
+                const role = document.getElementById('editRole').value;
+
+                if (!employeeName || !email || !phoneNumber || !department || !jobTitle || !branchName || !role) {
+                    showAlert('All fields are required.', 'danger');
+                    return;
+                }
+
+                if (!/^\d{10}$/.test(phoneNumber)) {
+                    showAlert('Phone number should contain 10 digits.', 'danger');
+                    return;
+                }
+
+                fetch(`${config.backendURL}employee/${employeeID}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Accept': 'text/plain',
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
+                    },
+                    body: JSON.stringify({
+                        employeeName: employeeName,
+                        email: email,
+                        phoneNumber: phoneNumber,
+                        department: department,
+                        jobTitle: jobTitle,
+                        branchID: branchID
+                    })
+                }).then(response => {
+                    if (response.ok) {
+                        fetch(`${config.backendURL}employee/${employeeID}/role`, {
+                            method: 'PUT',
+                            headers: {
+                                'Accept': 'text/plain',
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
+                            },
+                            body: JSON.stringify({
+                                role: role
+                            })
+                        }).then(response => {
+                            if (response.ok) {
+                                showAlert('Employee updated successfully', 'success');
+                                window.location.reload();
+                            } else {
+                                showAlert('Failed to update employee role', 'danger');
+                            }
+                        }).catch(error => {
+                            console.error('Error updating employee role:', error);
+                            showAlert('Error updating employee role', 'danger');
+                        });
+                    } else {
+                        showAlert('Failed to update employee', 'danger');
+                    }
+                }).catch(error => {
+                    console.error('Error updating employee:', error);
+                    showAlert('Error updating employee', 'danger');
+                });
+            });
+        });
+
+        function showAlert(message, type) {
+            const alertContainer = document.getElementById('alertContainer');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type} alert-dismissible fade show`;
+            alert.role = 'alert';
+            alert.innerHTML = `${message}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>`;
+            alertContainer.appendChild(alert);
+            setTimeout(() => {
+                $(alert).alert('close');
+            }, 5000);
+        }
+
+        function renderTable(data) {
+            const table = document.createElement('table');
+            table.className = 'table table-striped';
+            let thead = table.createTHead();
+            let row = thead.insertRow();
+            let headers = ['Employee ID', 'Name', 'Email', 'Phone Number', 'Department', 'Job Title', 'Role', 'Branch', 'Status', 'Options'];
+            headers.forEach(headerText => {
+                let header = document.createElement('th');
+                header.textContent = headerText;
+                row.appendChild(header);
+            });
+
+            let tbody = table.createTBody();
+            data.forEach(employee => {
+                let row = tbody.insertRow();
+                row.insertCell().textContent = employee.employeeID;
+                row.insertCell().textContent = employee.employeeName;
+                row.insertCell().textContent = employee.email;
+                row.insertCell().textContent = employee.phoneNumber;
+                row.insertCell().textContent = employee.department;
+                row.insertCell().textContent = employee.jobTitle;
+                row.insertCell().textContent = employee.role;
+                row.insertCell().textContent = employee.branch.branchName;
+                row.insertCell().textContent = employee.status;
+                let optionsCell = row.insertCell();
+
+                let editBtn = document.createElement('button');
+                editBtn.textContent = 'Edit';
+                editBtn.className = 'btn btn-primary btn-sm mr-1';
+                editBtn.onclick = function() {
+                    document.getElementById('addEmployeeForm').style.display = 'none';
+                    document.getElementById('editEmployeeForm').style.display = 'block';
+                    document.getElementById('editEmployeeID').value = employee.employeeID;
+                    document.getElementById('editEmployeeName').value = employee.employeeName;
+                    document.getElementById('editEmail').value = employee.email;
+                    document.getElementById('editPhoneNumber').value = employee.phoneNumber;
+                    document.getElementById('editDepartment').value = employee.department;
+                    document.getElementById('editJobTitle').value = employee.jobTitle;
+                    document.getElementById('editBranch').value = employee.branch.branchName;
+                    document.getElementById('editRole').value = employee.role;
+                };
+                optionsCell.appendChild(editBtn);
+
+                let deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.className = 'btn btn-danger btn-sm mr-1';
+                deleteBtn.onclick = function() {
+                    showConfirmation(`Are you sure you want to delete employee ${employee.employeeName}?`, () => {
+                        fetch(`${config.backendURL}employee/${employee.employeeID}`, {
+                            method: 'DELETE',
+                            headers: {
+                                'Accept': 'text/plain',
+                                'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
+                            }
+                        }).then(response => {
+                            if (response.ok) {
+                                showAlert(`Deleted employee ${employee.employeeID}`, 'success');
+                                window.location.reload();
+                            } else {
+                                showAlert('Failed to delete employee', 'danger');
+                            }
+                        }).catch(error => {
+                            console.error('Error deleting employee:', error);
+                            showAlert('Error deleting employee', 'danger');
+                        });
+                    });
+                };
+                optionsCell.appendChild(deleteBtn);
+
+                let enableBtn = document.createElement('button');
+                enableBtn.textContent = 'Enable';
+                enableBtn.className = 'btn btn-success btn-sm mr-1';
+                enableBtn.onclick = function() {
+                    fetch(`${config.backendURL}employee/${employee.employeeID}/status`, {
+                        method: 'PUT',
+                        headers: {
+                            'Accept': 'text/plain',
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
+                        },
+                        body: JSON.stringify({
+                            status: 'Active'
+                        })
+                    }).then(response => {
+                        if (response.ok) {
+                            showAlert(`Enabled employee ${employee.employeeID}`, 'success');
+                            window.location.reload();
+                        } else {
+                            showAlert('Failed to enable employee', 'danger');
+                        }
+                    }).catch(error => {
+                        console.error('Error enabling employee:', error);
+                        showAlert('Error enabling employee', 'danger');
+                    });
+                };
+                if (employee.status === 'Active') {
+                    enableBtn.disabled = true;
+                }
+                optionsCell.appendChild(enableBtn);
+
+                let disableBtn = document.createElement('button');
+                disableBtn.textContent = 'Disable';
+                disableBtn.className = 'btn btn-warning btn-sm';
+                disableBtn.onclick = function() {
+                    fetch(`${config.backendURL}employee/${employee.employeeID}/status`, {
+                        method: 'PUT',
+                        headers: {
+                            'Accept': 'text/plain',
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
+                        },
+                        body: JSON.stringify({
+                            status: 'Disabled'
+                        })
+                    }).then(response => {
+                        if (response.ok) {
+                            showAlert(`Disabled employee ${employee.employeeID}`, 'success');
+                            window.location.reload();
+                        } else {
+                            showAlert('Failed to disable employee', 'danger');
+                        }
+                    }).catch(error => {
+                        console.error('Error disabling employee:', error);
+                        showAlert('Error disabling employee', 'danger');
+                    });
+                };
+                if (employee.status === 'Disabled') {
+                    disableBtn.disabled = true;
+                }
+                optionsCell.appendChild(disableBtn);
+            });
+
+            document.getElementById('employeeTable').innerHTML = '';
+            document.getElementById('employeeTable').appendChild(table);
+        }
+
+        function renderBranchDropdown(data) {
+            const branchDropdown = document.getElementById('branch');
+            const editBranchDropdown = document.getElementById('editBranch');
+            data.forEach(branch => {
+                const option = document.createElement('option');
+                option.value = branch.branchName;
+                option.textContent = branch.branchName;
+                branchDropdown.appendChild(option);
+                editBranchDropdown.appendChild(option.cloneNode(true));
+            });
+        }
+
+        function showConfirmation(message, onConfirm) {
+            const alertContainer = document.getElementById('alertContainer');
+            const confirmationAlert = document.createElement('div');
+            confirmationAlert.className = 'alert alert-warning alert-dismissible fade show';
+            confirmationAlert.role = 'alert';
+            confirmationAlert.innerHTML = `${message}
+                <button id="confirmBtn" type="button" class="btn btn-danger btn-sm">Confirm</button>
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>`;
+            alertContainer.appendChild(confirmationAlert);
+
+            document.getElementById('confirmBtn').addEventListener('click', function() {
+                onConfirm();
+                $(confirmationAlert).alert('close');
+            });
+        }
+    </script>
+</body>
+</html>

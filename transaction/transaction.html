@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transactions</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/list.js/2.3.1/list.min.js"></script>
+    <script src="../config.js"></script>
+</head>
+<body class="bg-light">
+    <div id="accountsContainer" class="container mt-5"></div>
+
+    <script>
+    async function fetchTransactions() {
+        const accountDetailsUrl = `${config.backendURL}user/accounts`;
+        try {
+            const response = await fetch(accountDetailsUrl, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const accountDetails = await response.json();
+            for (const account of accountDetails) {
+                const apiUrl = `${config.backendURL}user/${account.accountNo}/transactions`;
+                const transactionsResponse = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
+                    }
+                });
+
+                if (!transactionsResponse.ok) {
+                    throw new Error(`HTTP error! status: ${transactionsResponse.status}`);
+                }
+
+                const transactions = await transactionsResponse.json();
+                createAccountTable(account.accountNo, transactions);
+            }
+        } catch (error) {
+            console.error('Failed to fetch transactions:', error);
+        }
+    }
+
+    function createAccountTable(accountNo, transactions) {
+        const container = document.getElementById('accountsContainer');
+        const tableContainer = document.createElement('div');
+        tableContainer.className = 'my-5';
+        tableContainer.innerHTML = `
+            <h2 class="text-xl font-bold mb-3">Transactions on Account No: ${accountNo}</h2>
+            <div class="list" id="list-${accountNo}">
+                <input class="search form-control mb-3" placeholder="Search..." />
+                <button class="sort btn btn-primary mb-3" data-sort="timestamp">Sort by Date</button>
+                <table class="table table-striped mt-2">
+                    <thead class="thead-dark">
+                        <tr>
+                            <th scope="col">Transaction ID</th>
+                            <th scope="col">Account ID</th>
+                            <th scope="col">From Account ID</th>
+                            <th scope="col">To Account ID</th>
+                            <th scope="col">Transaction Type</th>
+                            <th scope="col">Amount</th>
+                            <th scope="col">Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody class="list">
+                    </tbody>
+                </table>
+                <button id="export-csv-${accountNo}" class="btn btn-secondary mb-3">Export as CSV</button>
+            </div>
+        `;
+        container.appendChild(tableContainer);
+
+        const list = new List(`list-${accountNo}`, {
+            valueNames: ['transaction-id', 'account-id', 'from-account-id', 'to-account-id', 'transaction-type', 'amount', 'timestamp'],
+            item: `<tr>
+                    <td class="transaction-id"></td>
+                    <td class="account-id"></td>
+                    <td class="from-account-id"></td>
+                    <td class="to-account-id"></td>
+                    <td class="transaction-type"></td>
+                    <td class="amount"></td>
+                    <td class="timestamp"></td>
+                   </tr>`,
+            listClass: "list",
+        });
+
+        transactions.forEach(transaction => {
+            list.add({
+                'transaction-id': transaction.transactionID,
+                'account-id': transaction.accountID,
+                'from-account-id': transaction.fromAccountID || 'N/A',
+                'to-account-id': transaction.toAccountID || 'N/A',
+                'transaction-type': transaction.transactionType,
+                'amount': transaction.amount,
+                'timestamp': transaction.timestamp,
+            });
+        });
+
+        document.getElementById(`export-csv-${accountNo}`).addEventListener('click', () => exportTransactionsToCSV(accountNo, transactions));
+    }
+
+    function exportTransactionsToCSV(accountNo, transactions) {
+        let csvContent = "data:text/csv;charset=utf-8,Transaction ID,Account ID,From Account ID,To Account ID,Transaction Type,Amount,Timestamp\n";
+        transactions.forEach(function(transaction) {
+            let row = [
+                transaction.transactionID,
+                transaction.accountID,
+                transaction.fromAccountID || 'N/A',
+                transaction.toAccountID || 'N/A',
+                transaction.transactionType,
+                transaction.amount,
+                transaction.timestamp
+            ].join(",");
+            csvContent += row + "\r\n";
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `transactions_account_${accountNo}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    fetchTransactions();
+    </script>
+</body>
+</html>

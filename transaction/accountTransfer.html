@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Transfer</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../config.js"></script>
+</head>
+<body class="bg-light">
+    <div class="container mt-5">
+        <h2 class="mb-4">Transfer Amount</h2>
+        <form id="transferForm" class="row g-3">
+            <div class="col-md-6">
+                <label for="fromAccountId" class="form-label">From Account ID</label>
+                <input type="number" class="form-control" id="fromAccountId" required>
+            </div>
+            <div class="col-md-6">
+                <label for="toAccountId" class="form-label">To Account ID</label>
+                <input type="number" class="form-control" id="toAccountId" required>
+            </div>
+            <div class="col-md-6">
+                <label for="amount" class="form-label">Amount</label>
+                <input type="number" class="form-control" id="amount" step="0.01" required>
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">Transfer</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal fade" id="messageModal" tabindex="-1" aria-labelledby="messageModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="messageModalLabel">Message</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <!-- Message will be set here -->
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+        document.getElementById('transferForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const fromAccountId = document.getElementById('fromAccountId').value;
+            const toAccountId = document.getElementById('toAccountId').value;
+            const amount = document.getElementById('amount').value;
+
+            // Validation for positive integers and not empty
+            if (!fromAccountId || fromAccountId <= 0 || !Number.isInteger(parseFloat(fromAccountId))) {
+                showModal('From Account ID must be a positive integer and cannot be empty.');
+                return;
+            }
+
+            if (!toAccountId || toAccountId <= 0 || !Number.isInteger(parseFloat(toAccountId))) {
+                showModal('To Account ID must be a positive integer and cannot be empty.');
+                return;
+            }
+
+            if (!amount || amount <= 0 || !Number.isInteger(parseFloat(amount))) {
+                showModal('Amount must be a positive integer and cannot be empty.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${config.backendURL}transaction/transfer?fromAccountId=${fromAccountId}&toAccountId=${toAccountId}&amount=${amount}`, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
+                    }
+                });
+
+                if (!response.ok) {
+                    if (response.headers.get("Content-Type")?.includes("application/json")) {
+                        const errorResult = await response.json();
+                        showModal(`Error: ${JSON.stringify(errorResult)}`);
+                    } else {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                } else {
+                    if (response.headers.get("Content-Type")?.includes("application/json")) {
+                        const result = await response.json();
+                        showModal(`Amount transferred successfully`);
+                    } else {
+                        // If the response is not JSON, handle accordingly
+                        showModal('Amount transferred successfully');
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to make a transfer:', error);
+                showModal('Failed to make a transfer. Please try again.');
+            }
+        });
+
+        function showModal(message) {
+            const modalBody = document.querySelector('#messageModal .modal-body');
+            modalBody.textContent = message; // Set the message in the modal
+            const messageModal = new bootstrap.Modal(document.getElementById('messageModal'));
+            messageModal.show(); // Show the modal
+        }
+    </script>
+</body>
+</html>

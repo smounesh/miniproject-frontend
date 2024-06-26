@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>User Management</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.21/css/jquery.dataTables.css">
+    <script src="https://code.jquery.com/jquery-3.5.1.js" defer></script>
+    <script src="https://cdn.datatables.net/1.10.21/js/jquery.dataTables.js" defer></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" defer></script>
+    <script src="../config.js"></script>
+    <style>
+        body {
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h2>User Management</h2>
+    <button id="addUserBtn" class="btn btn-primary mt-2">Add User</button>
+    <div id="addUserForm" style="display: none;">
+        <!-- Add your form fields here -->
+    </div>
+    <div id="editUserForm" style="display: none;">
+        <!-- Add your form fields here -->
+    </div>
+    <table id="userTable" class="table table-striped table-bordered" style="width:100%">
+        <thead>
+            <tr>
+                <th>User ID</th>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Phone Number</th>
+                <th>Address</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Data will be inserted here dynamically -->
+        </tbody>
+    </table>
+
+    <script defer>
+        let users = [];
+
+        fetch(`${config.backendURL}account/userdetail`, {
+            headers: {
+                'accept': '*/*',
+                'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            users = data;
+            renderTable(data);
+        });
+
+        function renderTable(data) {
+            $('#userTable').DataTable().destroy();
+            $('#userTable').DataTable({
+                data: data,
+                columns: [
+                    { data: 'userID' },
+                    { data: 'username' },
+                    { data: 'email' },
+                    { data: 'phoneNumber' },
+                    { data: 'address' },
+                    {
+                        data: null,
+                        defaultContent: '<button class="btn btn-primary edit">Edit</button> <button class="btn btn-success enable">Enable</button> <button class="btn btn-danger disable">Disable</button>'
+                    }
+                ]
+            });
+        }
+
+        function filterUsers() {
+            const searchText = $('#searchInput').val().toLowerCase() || $('#searchInput2').val().toLowerCase();
+            const filteredUsers = users.filter(user =>
+                user.username.toLowerCase().includes(searchText) ||
+                user.email.toLowerCase().includes(searchText) ||
+                user.phoneNumber.toLowerCase().includes(searchText)
+            );
+            renderTable(filteredUsers);
+        }
+
+        // Add event listeners for the search inputs
+        $('#searchInput, #searchInput2').on('input', filterUsers);
+    </script>
+</body>
+</html>
